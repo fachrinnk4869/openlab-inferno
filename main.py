@@ -315,6 +315,8 @@ def main():
         ret, frame = cap.read()
         if not ret:
             break
+        # Mirror frame secara horizontal
+        frame = cv2.flip(frame, 1)
         # batch = dataset[i]
         batch = detector.run(frame)
         vals = test(face_rec_model, batch)
