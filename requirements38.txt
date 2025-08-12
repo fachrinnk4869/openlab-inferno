@@ -7,7 +7,7 @@ wandb
 imaug
 mediapipe
 soundfile
-"git+https://github.com/facebookresearch/pytorch3d.git@stable"
+# "git+https://github.com/facebookresearch/pytorch3d.git@stable"
 pytorch-lightning
 pandas
 compress_pickle
