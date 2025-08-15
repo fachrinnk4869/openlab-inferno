@@ -1,0 +1,251 @@
+
+data:
+  data_class: CelebVTextDataModule
+  input_dir: celebvtext/CelebV-Text/downloaded_celebvtext/processed_25fps
+  output_dir: celebvtext
+  processed_subfolder: processed
+  num_workers: 10
+  image_size: 224
+  scale: 1.25
+  face_detector: mediapipe
+  face_detector_threshold: 0.05
+  include_processed_audio: true
+  include_raw_audio: true
+  preload_videos: false
+  inflate_by_video_size: false
+  ring_type: none
+  ring_size: none
+  occlusion_settings_train:
+    occlusion_length:
+    - 2
+    - 4
+    occlusion_probability_mouth: 0.1
+    occlusion_probability_left_eye: 0.1
+    occlusion_probability_right_eye: 0.1
+    occlusion_probability_face: 0
+  occlusion_settings_val:
+    occlusion_length:
+    - 2
+    - 4
+    occlusion_probability_mouth: 0.1
+    occlusion_probability_left_eye: 0.1
+    occlusion_probability_right_eye: 0.1
+    occlusion_probability_face: 0
+  occlusion_settings_test:
+    occlusion_length:
+    - 2
+    - 4
+    occlusion_probability_mouth: 0.1
+    occlusion_probability_left_eye: 0.1
+    occlusion_probability_right_eye: 0.1
+    occlusion_probability_face: 0
+  drop_last: true
+  training_sampler: uniform
+  landmark_types:
+  - mediapipe
+  - fan3d
+  landmark_sources:
+  - original
+  - aligned
+  segmentation_source: aligned
+  segmentation_type: focus
+  split: random_70_15_15
+  align_images: true
+  return_mica_images: fan
+  augmentation:
+  - Affine:
+    - scale:
+      - 0.8
+      - 1.2
+    - rotate:
+      - -10.0
+      - 10.0
+    - translate_percent:
+      - -0.1
+      - 0.1
+  - OneOf:
+    - JpegCompression:
+      - compression:
+        - 50
+        - 90
+    - AdditiveGaussianNoise:
+      - scale:
+        - 0
+        - 10
+    - GaussianBlur:
+      - sigma:
+        - 0.0
+        - 1.5
+    - Sharpen:
+      - lightness: 1.0
+      - alpha:
+        - 0.0
+        - 0.5
+    - Identity:
+      - name: identity
+model:
+  image_size: 224
+  pl_module_class: FaceReconstructionBase
+  face_encoder:
+    type: EmicaEncoder
+    trainable: true
+    encoders:
+      expression_encoder:
+        type: ExpressionEncoder
+        backbone: ResNet50
+        input_size: 224
+        predicts:
+          expcode: 100
+        representations:
+          expcode: flame
+        trainable: true
+        last_layer_init_zero: true
+      mica_deca_encoder:
+        encoders:
+          deca_encoder:
+            type: DecaEncoder
+            backbone: ResNet50
+            input_size: 224
+            predicts:
+              texcode: 50
+              jawpose: 3
+              globalpose: 3
+              cam: 3
+              lightcode: 27
+            representations:
+              expcode: flame
+              texcode: flame
+              jawpose: aa
+              globalpose: aa
+              cam: orth
+              lightcode: spherical_harmonics
+            trainable: false
+            last_layer_init_zero: true
+          mica_encoder:
+            type: MicaEncoder
+            backbone: ResNet50
+            mica_model_path: MICA/model/mica.tar
+            mica_preprocessing: fan
+            input_size: 224
+            predicts:
+              shape: 300
+            trainable: false
+  shape_model:
+    type: FlameShapeModel
+    flame:
+      type: flame_mediapipe
+      flame_model_path: FLAME/geometry/generic_model.pkl
+      n_shape: 300
+      n_exp: 100
+      flame_lmk_embedding_path: FLAME/geometry/landmark_embedding.npy
+      flame_mediapipe_lmk_embedding_path: FLAME/geometry/mediapipe_landmark_embedding.npz
+      n_tex: 50
+      tex_path: /home/fachri/openlab/texture_inferno/assets/FLAME_albedo_from_BFM.npz
+      tex_type: BFM
+    use_texture: true
+  renderer:
+    type: DecaRenderer
+    face_mask_path: FLAME/mask/uv_face_mask.png
+    face_eye_mask_path: FLAME/mask/uv_face_eye_mask.png
+    uv_size: 256
+    image_size: 224
+    topology_path: FLAME/geometry/head_template.obj
+    n_light: 27
+    output_image_keyword: image
+  init_from: 2023_10_18_20-33-49_5331325351912691345_FaceReconstructionBase_Celeb_ResNet50_Pe_Aug
+  resume_training: false
+learning:
+  losses:
+    landmark_loss_mediapipe:
+      type: landmark_loss_mediapipe
+      weight: 32.0
+      metric: l1
+      mask_invalid: mediapipe_landmarks
+      predicted_key: predicted_landmarks_mediapipe
+      target_key: landmarks,mediapipe
+    lip_distance_mediapipe:
+      type: lip_distance_mediapipe
+      weight: 36.0
+      metric: l1
+      mask_invalid: mediapipe_landmarks
+      predicted_key: predicted_landmarks_mediapipe
+      target_key: landmarks,mediapipe
+    mouth_corner_distance_mediapipe:
+      type: mouth_corner_distance_mediapipe
+      weight: 36.0
+      metric: l1
+      mask_invalid: mediapipe_landmarks
+      predicted_key: predicted_landmarks_mediapipe
+      target_key: landmarks,mediapipe
+    eye_distance_mediapipe:
+      type: eye_distance_mediapipe
+      weight: 36.0
+      metric: l1
+      mask_invalid: mediapipe_landmarks
+      predicted_key: predicted_landmarks_mediapipe
+      target_key: landmarks,mediapipe
+    photometric_loss:
+      type: photometric_loss
+      weight: 2.0
+      metric: l1
+      predicted_key: predicted_image
+      target_key: image_original
+      mask_key: focus
+      masking_type: gt
+    emotion_loss:
+      weight: 5.0
+      network_path: EmotionRecognition/image_based_networks/ResNet50
+      emo_feat_loss: mse_loss
+      trainable: false
+      normalize_features: false
+      mask_invalid: mediapipe_landmarks
+      predicted_key: predicted_image
+      target_key: image_original
+      mask_key: focus
+      masking_type: gt
+    lip_reading_loss:
+      type: lip_reading_loss
+      metric: cosine_similarity
+      weight: 10.0
+      mask_invalid: mediapipe_landmarks
+      predicted_key: predicted_image
+      target_key: image_original
+      predicted_landmarks: predicted_landmarks
+      target_landmarks: landmarks,fan3d
+      mask_key: focus
+      masking_type: gt
+      per_frame: false
+    expression_reg:
+      type: expression_reg
+      weight: 0.0001
+      metric: false
+      predicted_key: expcode
+      target_key: false
+  metrics: {}
+  learning_rate: 0.0001
+  optimizer: Adam
+  batching:
+    batch_size_train: 20
+    batch_size_val: 20
+    batch_size_test: 20
+    ring_size_train: 8
+    ring_size_val: 8
+    ring_size_test: 8
+    num_gpus: 1
+    gpu_memory_min_gb: 45
+    gpu_memory_max_gb: 85
+    log_every_n_steps: 10
+  early_stopping: false
+  checkpoint_after_training: latest
+  logger_type: WandbLogger
+  training_vis_frequency: 1000
+  validation_vis_frequency: 100
+  tags:
+  - emica_emoca_stage
+inout:
+  output_dir: false
+  full_run_dir: FaceReconstruction/models/EMICA-CVT_flame2020_notexture
+  checkpoint_dir: FaceReconstruction/models/EMICA-CVT_flame2020_notexture/checkpoints
+  name: FaceReconstructionBase_Celeb_ResNet50_Pe_Aug
+  time: 2023_10_26_15-15-19
+  random_id: '-2340495024515473390'

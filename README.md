@@ -19,6 +19,7 @@ bash inferno_apps/FaceReconstruction/download_assets.sh
 copy ke dalam root folder
 
 copy head_template.obj, texture_data_256.npy ke dalam assets
+copy cfg.yml  ke dalam assets/FaceRecognition/models/EMICA-CVT_flame2020_notexture 
 
 download juga BFM_to_FLAME.npz di [sini](https://huggingface.co/datasets/fachrinnk4869/deca_dataset)
 
