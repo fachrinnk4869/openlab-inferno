@@ -35,3 +35,6 @@ kalau ada kamera
 ```python
 python3 main.py
 ```
+documentation
+
+![WhatsApp Image 2025-10-26 at 7 39 15 AM](https://github.com/user-attachments/assets/61ccf2aa-d2ad-4636-8234-0f2ff3e26612)
